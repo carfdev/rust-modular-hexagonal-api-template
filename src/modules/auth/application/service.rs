@@ -110,6 +110,9 @@ where
         if !user.is_active {
             return Err(AppError::Forbidden("Account is disabled".to_string()));
         }
+
+        // Update last login timestamp
+        self.user_repo.update_last_login(user.id)?;
         
         let (session, refresh_token) = self.create_session(user.id, user_agent, ip_address).await?;
         

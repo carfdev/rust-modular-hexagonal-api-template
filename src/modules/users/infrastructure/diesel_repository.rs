@@ -138,6 +138,16 @@ impl UserRepository for DieselUserRepository {
             .map(|_| ())
             .map_err(AppError::from)
     }
+
+    fn update_last_login(&self, user_id: Uuid) -> Result<(), AppError> {
+        let mut conn = self.pool.get().map_err(|_| AppError::InternalError)?;
+        
+        diesel::update(users::table.find(user_id))
+            .set(users::last_login_at.eq(chrono::Utc::now().naive_utc()))
+            .execute(&mut conn)
+            .map(|_| ())
+            .map_err(AppError::from)
+    }
 }
 
 

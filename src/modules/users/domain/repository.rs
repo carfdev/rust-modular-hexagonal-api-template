@@ -12,6 +12,7 @@ pub trait UserRepository {
     fn add_role(&self, user_id: Uuid, role_name: &str) -> Result<(), AppError>;
     fn remove_role(&self, user_id: Uuid, role_name: &str) -> Result<(), AppError>;
     fn update_password(&self, user_id: Uuid, new_password_hash: &str) -> Result<(), AppError>;
+    fn update_last_login(&self, user_id: Uuid) -> Result<(), AppError>;
 }
 
 
