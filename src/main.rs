@@ -2,16 +2,19 @@ mod modules;
 mod common;
 mod schema;
 
-use actix_web::{web, App, HttpServer, middleware::Logger};
+use actix_web::{web, App, HttpServer};
 use common::{config::AppConfig, logging, database::DbPool};
 
 
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Load env/config first so RUST_LOG is available
+    let config = AppConfig::init();
+    
+    // Init logging after env is loaded
     logging::init();
     
-    let config = AppConfig::init();
     let app_config = config.clone();
     let pool = common::database::init(&config.database_url);
     let config_pool = pool.clone();
@@ -24,7 +27,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(DbPool::clone(&config_pool))) // Need to create pool outside
             .app_data(web::Data::new(app_config.clone()))
-            .wrap(Logger::default())
+            .wrap(actix_web::middleware::Logger::default()) // Use standard Logger for visible request logs
             .configure(modules::auth::interfaces::http::routes::config)
             .configure(modules::users::interfaces::http::routes::config)
             .configure(modules::posts::interfaces::http::routes::config)
