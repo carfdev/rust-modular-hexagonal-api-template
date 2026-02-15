@@ -3,3 +3,4 @@ pub mod errors;
 pub mod database;
 pub mod logging;
 pub mod middleware;
+pub mod user_agent_parser;

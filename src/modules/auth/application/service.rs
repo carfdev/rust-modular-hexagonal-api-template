@@ -307,12 +307,14 @@ where
 
         let expires_at = Utc::now().naive_utc() + chrono::Duration::days(self.config.jwt_refresh_expiration_days);
         
+        let device_name = user_agent.as_deref().map(crate::common::user_agent_parser::parse_device_name);
+
         let new_session = NewUserSession {
             user_id,
             refresh_token_hash: refresh_hash,
             user_agent,
             ip_address,
-            device_name: None,
+            device_name,
             expires_at,
         };
 
