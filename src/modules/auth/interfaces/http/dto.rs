@@ -3,8 +3,6 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct RegisterUserDto {
-    #[validate(length(min = 3, message = "Username must be at least 3 characters"))]
-    pub username: String,
     #[validate(email(message = "Invalid email address"))]
     pub email: String,
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
@@ -25,7 +23,6 @@ pub struct VerifyEmailDto {
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct ResetPasswordDto {
-    pub user_id: uuid::Uuid,
     pub token: String,
     #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub new_password: String,
@@ -52,4 +49,5 @@ pub struct UserSessionDto {
     pub created_at: chrono::NaiveDateTime,
     pub last_used_at: chrono::NaiveDateTime,
     pub expires_at: chrono::NaiveDateTime,
+    pub is_current: bool,
 }

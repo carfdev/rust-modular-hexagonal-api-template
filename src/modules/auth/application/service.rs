@@ -52,19 +52,14 @@ where
         }
     }
 
-    pub async fn register(&self, username: String, email: String, password: String) -> Result<User, AppError> {
+    pub async fn register(&self, email: String, password: String) -> Result<User, AppError> {
         if self.user_repo.find_by_email(&email)?.is_some() {
             return Err(AppError::Conflict("Email already exists".to_string()));
-        }
-
-        if self.user_repo.find_by_username(&username)?.is_some() {
-            return Err(AppError::Conflict("Username already exists".to_string()));
         }
 
         let password_hash = PasswordService::hash_password(&password)?;
         
         let new_user = NewUser {
-            username,
             email: email.clone(),
             password_hash,
         };
@@ -88,9 +83,7 @@ where
         // Send email
         let recipient = EmailRecipient {
             email: email.clone(),
-            name: Some(user.username.clone()),
-
-
+            name: None,
         };
 
         self.email_service.send_verification_email(&recipient, &format!("{}:{}", user.id, token)).await?;
@@ -135,6 +128,10 @@ where
         
         let verification = self.verification_repo.find_email_verification_by_user(user_id)?
             .ok_or(AppError::Unauthorized("Invalid or expired token".to_string()))?;
+
+        if verification.used {
+             return Err(AppError::ValidationError(validator::ValidationErrors::new())); 
+        }
 
         if !PasswordService::verify_password(token_raw, &verification.token_hash)? {
              return Err(AppError::Unauthorized("Invalid token".to_string()));
@@ -220,7 +217,7 @@ where
         // Send email
         let recipient = EmailRecipient {
             email: email.to_string(),
-            name: Some(user.username.clone()),
+            name: None,
         };
         self.email_service.send_verification_email(&recipient, &format!("{}:{}", user.id, token)).await?;
         
@@ -232,11 +229,11 @@ where
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
             
         let token = Uuid::new_v4().to_string();
-        // In prod, hash this token
+        let token_hash = PasswordService::hash_password(&token)?;
         
         let reset_token = NewPasswordResetToken {
             user_id: user.id,
-            token_hash: token.clone(),
+            token_hash,
             expires_at: Utc::now().naive_utc() + chrono::Duration::minutes(15), 
         };
 
@@ -244,46 +241,39 @@ where
 
         let recipient = EmailRecipient {
             email: email.to_string(),
-            name: Some(user.username.clone()),
+            name: None,
         };
 
-        self.email_service.send_password_reset_email(&recipient, &token).await?;
+        self.email_service.send_password_reset_email(&recipient, &format!("{}:{}", user.id, token)).await?;
 
         Ok(())
     }
 
-    pub async fn reset_password(&self, user_id: Uuid, token: &str, new_password: &str) -> Result<(), AppError> {
+    pub async fn reset_password(&self, token: &str, new_password: &str) -> Result<(), AppError> {
+        let parts: Vec<&str> = token.split(':').collect();
+        if parts.len() != 2 {
+            return Err(AppError::Unauthorized("Invalid token format".to_string()));
+        }
+        
+        let user_id = Uuid::parse_str(parts[0]).map_err(|_| AppError::Unauthorized("Invalid token format".to_string()))?;
+        let token_raw = parts[1];
+
         let reset_token = self.verification_repo.find_password_reset_by_user(user_id)?
-            .ok_or_else(|| AppError::NotFound("No reset token found".to_string()))?;
+            .ok_or(AppError::Unauthorized("Invalid or expired token".to_string()))?;
 
         if reset_token.used {
              return Err(AppError::ValidationError(validator::ValidationErrors::new())); 
+        }
+
+        if !PasswordService::verify_password(token_raw, &reset_token.token_hash)? {
+             return Err(AppError::Unauthorized("Invalid token".to_string()));
         }
 
         if reset_token.expires_at < Utc::now().naive_utc() {
              return Err(AppError::ValidationError(validator::ValidationErrors::new())); 
         }
 
-        if reset_token.token_hash != token {
-             return Err(AppError::Unauthorized("Invalid token".to_string()));
-        }
-
         let password_hash = PasswordService::hash_password(new_password)?;
-        // Ideally we have update_password, but we can't easily add it to trait without changing it everywhere.
-        // CHECK if User has mutable access? No.
-        // User update usually requires `update` method in repo.
-        // Let's assume we can't fix this perfectly without `update_user`.
-        // BUT we MUST remove dead_code.
-        // The previous error didn't complain about dead code here because methods were missing.
-        // If I add them, I need to use `create_password_reset`.
-        
-        // For password update, if I don't update it, the feature is broken.
-        // I should add `update_password` to `UserRepository` trait?
-        // Or `update` method taking `User`.
-        // Let's check `UserRepository` in `user_module`.
-        // Step 527 showed `UserRepository` trait.
-        // It has `verify_user` and `add_role`. No generic update.
-        // I should add `update_password` to `UserRepository`.
         
         self.user_repo.update_password(user_id, &password_hash)?;
         

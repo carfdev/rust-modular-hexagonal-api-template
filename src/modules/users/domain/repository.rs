@@ -5,7 +5,6 @@ use crate::common::errors::AppError;
 pub trait UserRepository {
     fn create(&self, new_user: NewUser) -> Result<User, AppError>;
     fn find_by_email(&self, email: &str) -> Result<Option<User>, AppError>;
-    fn find_by_username(&self, username: &str) -> Result<Option<User>, AppError>;
     fn find_by_id(&self, id: Uuid) -> Result<Option<User>, AppError>;
     fn verify_user(&self, id: Uuid) -> Result<(), AppError>;
     fn get_roles(&self, user_id: Uuid) -> Result<Vec<String>, AppError>;

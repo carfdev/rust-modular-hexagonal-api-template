@@ -45,7 +45,7 @@ pub async fn register(
     body.validate().map_err(AppError::ValidationError)?;
     
     let service = auth_service_factory(&pool, &config);
-    service.register(body.username.clone(), body.email.clone(), body.password.clone()).await?;
+    service.register(body.email.clone(), body.password.clone()).await?;
 
     
     Ok(HttpResponse::Created().json(serde_json::json!({"message": "User registered successfully, please verify your email"})))
@@ -110,7 +110,7 @@ pub async fn reset_password(
     body.validate().map_err(AppError::ValidationError)?;
 
     let service = auth_service_factory(&pool, &config);
-    service.reset_password(body.user_id, &body.token, &body.new_password).await?;
+    service.reset_password(&body.token, &body.new_password).await?;
     
     Ok(HttpResponse::Ok().json(serde_json::json!({"message": "Password reset successfully"})))
 }
@@ -136,16 +136,6 @@ pub async fn logout(
     user: AuthenticatedUser,
 ) -> Result<HttpResponse, AppError> {
     let service = auth_service_factory(&pool, &config);
-    // Logic to revoke session
-    // We need to expose revoke_session in AuthService or call repo directly?
-    // Let's add revoke_session to AuthService.
-    // For now we assume implementation in service exists or we add it.
-    
-    // Actually, let's just use the repo via service if we can, or add the method.
-    // AuthService doesn't have revoke_session yet.
-    // Let's call the repo directly since we have the factory here which creates the service, 
-    // but the service encapsulates the repo.
-    // Better to add `logout` to AuthService.
     service.logout(user.session_id)?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({"message": "Logged out successfully"})))
@@ -197,6 +187,7 @@ pub async fn get_active_sessions(
         created_at: s.created_at,
         last_used_at: s.last_used_at,
         expires_at: s.expires_at,
+        is_current: s.id == user.session_id,
     }).collect();
 
     Ok(HttpResponse::Ok().json(dtos))

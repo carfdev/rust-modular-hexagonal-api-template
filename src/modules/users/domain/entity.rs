@@ -9,7 +9,6 @@ use crate::schema::users;
 pub struct User {
     pub id: Uuid,
     pub email: String,
-    pub username: String,
     #[serde(skip_serializing)] // Never serialize password hash
     pub password_hash: String,
     pub is_active: bool,
@@ -23,6 +22,5 @@ pub struct User {
 #[diesel(table_name = users)]
 pub struct NewUser {
     pub email: String,
-    pub username: String,
     pub password_hash: String,
 }

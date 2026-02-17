@@ -36,15 +36,6 @@ impl UserRepository for DieselUserRepository {
             .optional()
             .map_err(AppError::from)
     }
-    fn find_by_username(&self, username_val: &str) -> Result<Option<User>, AppError> {
-        let mut conn = self.pool.get().map_err(|_| AppError::InternalError)?;
-        
-        users::table
-            .filter(users::username.eq(username_val))
-            .first::<User>(&mut conn)
-            .optional()
-            .map_err(AppError::from)
-    }
 
     fn find_by_id(&self, id: Uuid) -> Result<Option<User>, AppError> {
         let mut conn = self.pool.get().map_err(|_| AppError::InternalError)?;

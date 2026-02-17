@@ -1,4 +1,5 @@
-use actix_web::{FromRequest, dev::Payload, web, HttpRequest, error::ErrorUnauthorized};
+use actix_web::{FromRequest, dev::Payload, web, HttpRequest};
+use crate::common::errors::AppError;
 
 
 
@@ -33,22 +34,22 @@ impl FromRequest for AuthenticatedUser {
 
         Box::pin(async move {
             let auth_str = match auth_header {
-                Some(h) => h.to_str().map_err(|_| ErrorUnauthorized("Invalid authorization header"))?.to_string(),
-                None => return Err(ErrorUnauthorized("Missing authorization header")),
+                Some(h) => h.to_str().map_err(|_| AppError::Unauthorized("Invalid authorization header".to_string()))?.to_string(),
+                None => return Err(AppError::Unauthorized("Missing authorization header".to_string()).into()),
             };
 
             if !auth_str.starts_with("Bearer ") {
-                 return Err(ErrorUnauthorized("Invalid token scheme"));
+                 return Err(AppError::Unauthorized("Invalid token scheme".to_string()).into());
             }
             let token = auth_str[7..].to_string();
 
-            let config = config.ok_or_else(|| ErrorUnauthorized("Internal configuration error"))?;
-            let pool = pool.ok_or_else(|| ErrorUnauthorized("Internal database error"))?;
+            let config = config.ok_or_else(|| AppError::InternalError)?;
+            let pool = pool.ok_or_else(|| AppError::InternalError)?;
             
             let token_service = TokenService::new(config.as_ref().clone());
 
             let claims = token_service.verify_access_token(&token)
-                .map_err(|_| ErrorUnauthorized("Invalid or expired token"))?;
+                .map_err(|_| AppError::Unauthorized("Invalid or expired token".to_string()))?;
                 
             // Validate session in DB
             let session_repo = DieselSessionRepository::new(pool.as_ref().clone());
@@ -57,8 +58,8 @@ impl FromRequest for AuthenticatedUser {
             // Blocking call wrapper
             let session = web::block(move || session_repo.find_by_id(session_id))
                 .await
-                .map_err(|_| ErrorUnauthorized("Internal server error"))?
-                .map_err(|_| ErrorUnauthorized("Internal server error"))?;
+                .map_err(|_| AppError::InternalError)?
+                .map_err(|_| AppError::InternalError)?;
 
             match session {
                 Some(s) if !s.is_revoked => {
@@ -82,7 +83,7 @@ impl FromRequest for AuthenticatedUser {
                         roles: claims.roles,
                     })
                 },
-                _ => Err(ErrorUnauthorized("Session invalid or expired")),
+                _ => Err(AppError::Unauthorized("Session invalid or expired".to_string()).into()),
             }
         })
     }
@@ -105,8 +106,7 @@ impl FromRequest for RequireAdmin {
             if has_role {
                 Ok(RequireAdmin)
             } else {
-                use actix_web::error::ErrorForbidden;
-                Err(ErrorForbidden("Admin role required"))
+                Err(AppError::Forbidden("Admin role required".to_string()).into())
             }
         })
     }

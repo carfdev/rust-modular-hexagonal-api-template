@@ -24,13 +24,27 @@ impl<R: UserRepository> UserService<R> {
     }
 
     pub fn assign_role(&self, user_id: Uuid, role: &str) -> Result<(), AppError> {
-        // Optional: Check if user exists first to return better error?
-        // Repo might return error if user/role FK fails.
-        // Let's rely on repo.
+        let _ = self.user_repo.find_by_id(user_id)?
+            .ok_or_else(|| AppError::NotFound(format!("User with id {} not found", user_id)))?;
+
+        let roles = self.user_repo.get_roles(user_id)?;
+        if roles.contains(&role.to_string()) {
+            return Err(AppError::Conflict(format!("User already has role '{}'", role)));
+        }
+
         self.user_repo.add_role(user_id, role)
     }
 
     pub fn remove_role(&self, user_id: Uuid, role: &str) -> Result<(), AppError> {
+
+        let _ = self.user_repo.find_by_id(user_id)?
+            .ok_or_else(|| AppError::NotFound(format!("User with id {} not found", user_id)))?;
+
+        let roles = self.user_repo.get_roles(user_id)?;
+        if !roles.contains(&role.to_string()) {
+            return Err(AppError::Conflict(format!("User does not have role '{}'", role)));
+        }
+        
         self.user_repo.remove_role(user_id, role)
     }
 }

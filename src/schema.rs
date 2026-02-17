@@ -70,7 +70,6 @@ diesel::table! {
     users (id) {
         id -> Uuid,
         email -> Varchar,
-        username -> Varchar,
         password_hash -> Varchar,
         is_active -> Bool,
         is_verified -> Bool,
